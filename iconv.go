@@ -15,7 +15,7 @@ var (
 	E2BIG Error = os.Errno(int(C.E2BIG))
 )
 
-func Convert(input []byte, output []byte, fromEncoding string, toEncoding string) (bytesRead int, bytesWritten int, err os.Error) {
+func Convert(input []byte, output []byte, fromEncoding string, toEncoding string) (bytesRead int, bytesWritten int, err Error) {
 	// create a new converter
 	converter, err := NewConverter(fromEncoding, toEncoding)
 
@@ -30,7 +30,7 @@ func Convert(input []byte, output []byte, fromEncoding string, toEncoding string
 	return
 }
 
-func ConvertString(input string, fromEncoding string, toEncoding string) (output string, err os.Error) {
+func ConvertString(input string, fromEncoding string, toEncoding string) (output string, err Error) {
 	// create a new converter
 	converter, err := NewConverter(fromEncoding, toEncoding)
 

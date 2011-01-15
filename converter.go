@@ -13,7 +13,7 @@ type Converter struct {
 	open bool
 }
 
-func NewConverter(fromEncoding string, toEncoding string) (converter *Converter, err os.Error) {
+func NewConverter(fromEncoding string, toEncoding string) (converter *Converter, err Error) {
 	converter = new(Converter)
 
 	converter.context, err = C.iconv_open(C.CString(toEncoding), C.CString(fromEncoding))
@@ -47,21 +47,21 @@ func (this *Converter) Close() (err os.Error) {
 //
 // NOTE: not all bytes may be consumed from the input. This can be because the output
 // buffer is too small or because there were iconv errors
-func (this *Converter) Convert(input []byte, output []byte) (bytesRead int, bytesWritten int, err os.Error) {
+func (this *Converter) Convert(input []byte, output []byte) (bytesRead int, bytesWritten int, err Error) {
 	inputLeft := C.size_t(len(input))
 	outputLeft := C.size_t(len(output))
-
-	// we're going to give iconv the pointers to the underlying
-	// storage of each byte slice - so far this is the simplest
-	// way i've found to do that in Go, but it seems ugly
-	inputFirstElementPointer := &input[0]
-	inputPointer := (**C.char)(unsafe.Pointer(&inputFirstElementPointer))
-
-	outputFirstElementPointer := &output[0]
-	outputPointer := (**C.char)(unsafe.Pointer(&outputFirstElementPointer))
-
-	// we're only going to make one call to iconv
+	
 	if inputLeft > 0 && outputLeft > 0 {
+		// we're going to give iconv the pointers to the underlying
+		// storage of each byte slice - so far this is the simplest
+		// way i've found to do that in Go, but it seems ugly
+		inputFirstElementPointer := &input[0]
+		inputPointer := (**C.char)(unsafe.Pointer(&inputFirstElementPointer))
+
+		outputFirstElementPointer := &output[0]
+		outputPointer := (**C.char)(unsafe.Pointer(&outputFirstElementPointer))
+
+		// we're only going to make one call to iconv
 		_,err = C.iconv(this.context, inputPointer, &inputLeft, outputPointer, &outputLeft)
 
 		// update byte counters
@@ -72,59 +72,42 @@ func (this *Converter) Convert(input []byte, output []byte) (bytesRead int, byte
 	return bytesRead, bytesWritten, err
 }
 
-// convert the bytes of a string and return the resulting string
-//
-// TODO: can we do this in terms of Convert function
-func (this *Converter) ConvertString(input string) (output string, err os.Error) {
-	// both our input buffer and output buffer will be the same size
-	// but we'll reuse our output buffer each time its filled
-	bufferSize := len(input)
-	sourceLeft := C.size_t(bufferSize)
-	outputLeft := sourceLeft
-	outputReset := outputLeft
+// convert a string value, returning a new string value
+func (this *Converter) ConvertString(input string) (output string, err Error) {
 
-	// our input buffer is the source string, but iconv will track
-	// how many bytes has left to process
-	sourceBuffer := C.CString(input)
-	sourcePointer := &sourceBuffer
+	// construct the buffers
+	inputBuffer := []byte(input)
+	outputBuffer := make([]byte, len(inputBuffer) * 2) // we use a larger buffer to help avoid resizing later
 
-	outputBuffer := make([]byte, bufferSize)
-	outputFirstPointer := &outputBuffer[0] 
-	outputPointer := (**C.char)(unsafe.Pointer(&outputFirstPointer))
+	// call Convert until all input bytes are read or an error occurs
+	var bytesRead, totalBytesRead, bytesWritten, totalBytesWritten int
 
-	// process the source with iconv in a loop
-	for sourceLeft > 0 {
-		//fmt.Println("calling to iconv")
-		_,err := C.iconv(this.context, sourcePointer, &sourceLeft, outputPointer, &outputLeft)
+	for totalBytesRead < len(inputBuffer) && err == nil {
+		bytesRead, bytesWritten, err = this.Convert(inputBuffer, outputBuffer)
 
-		//fmt.Println("sourceLeft: ", int(sourceLeft), " outputLeft: ", int(outputLeft))
+		totalBytesRead += bytesRead
+		totalBytesWritten += bytesWritten
 
-		// check the err - most interested if we need to expand the output buffer
-		if err != nil {
-			//fmt.Println("got error value: ", err)
+		// check for the E2BIG error specifically, we can add to the output
+		// buffer to correct for it and then continue
+		if err == E2BIG {
+			// increase the size of the output buffer by another input length
+			// first, create a new buffer
+			tempBuffer := make([]byte, len(outputBuffer) + len(inputBuffer))
+			
+			// copy the existing data
+			copy(tempBuffer, outputBuffer)
 
-			if err == E2BIG {
-				// we need more output buffer to continue
-				// instead of resizing, lets pull what we got so far
-				// and set outputLeft back to the buffer size
-				output += string(outputBuffer[0:bufferSize - int(outputLeft)])
-				outputLeft = outputReset
-			} else {
-				// we got an error we can't continue with
-				break
-			}
+			// switch the buffers
+			outputBuffer = tempBuffer
+
+			// forget the error
+			err = nil
 		}
 	}
 
-	// free our sourceBuffer, no longer needed
-	//C.free(unsafe.Pointer(&sourceBuffer))
+	// construct the final output string
+	output = string(outputBuffer[:totalBytesWritten])
 
-	// convert output buffer a go string
-	output += string(outputBuffer[0:bufferSize - int(outputLeft)])
-
-	// free our outputBuffer, no longer needed
-	//C.free(unsafe.Pointer(&outputBuffer))	
-	
-	// return result and any err
 	return output, err
 }
