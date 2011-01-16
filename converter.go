@@ -1,6 +1,9 @@
 package iconv
 
-// #include <iconv.h>
+/*
+#include <iconv.h>
+#include <stdlib.h>
+*/
 import "C"
 
 import (
@@ -16,7 +19,16 @@ type Converter struct {
 func NewConverter(fromEncoding string, toEncoding string) (converter *Converter, err Error) {
 	converter = new(Converter)
 
-	converter.context, err = C.iconv_open(C.CString(toEncoding), C.CString(fromEncoding))
+	// create C strings
+	toEncodingC := C.CString(toEncoding)
+	fromEncodingC := C.CString(fromEncoding)
+
+	// open an iconv descriptor
+	converter.context, err = C.iconv_open(toEncodingC, fromEncodingC)
+
+	// free the C Strings
+	C.free(unsafe.Pointer(toEncodingC))
+	C.free(unsafe.Pointer(fromEncodingC))
 
 	// check err
 	if err == nil {

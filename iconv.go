@@ -1,6 +1,8 @@
 package iconv
 
-// #include <errno.h>
+/*
+#include <errno.h>
+*/
 import "C"
 
 import (
