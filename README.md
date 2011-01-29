@@ -1,72 +1,115 @@
-Install
-=======
+# Install
 
-The goinstall command can be used:
-
-	goinstall github.com/djimenez/iconv.go
-
-Or, you can clone the repository and use gomake instead
+The main method of installation is through gomake (provided in $GOROOT/bin)
 
 	git clone git://github.com/djimenez/iconv.go.git iconv
 	cd iconv
 	gomake install
 
-Usage
-=====
+Alternatively, you can try using goinstall (also provided in $GOROOT/bin).
+However, because iconv.go uses cgo to wrap iconv functions, the build may not
+succeed on all systems. At time of writing goinstall was still experimental and
+has known issues with cgo based packages because of how it produces its own
+make file.
+
+	goinstall github.com/djimenez/iconv.go
+
+# Usage
 
 To use the package, you'll need the appropriate import statement:
 
 	import (
-		// if you used goinstall, you'll want this import
-		iconv "github.com/djimenez/iconv.go"
-
 		// if you used gomake install directly, you'll want this import
 		iconv
+		
+		// if you used goinstall, you'll want this import
+		iconv "github.com/djimenez/iconv.go"
 	)
 
-Converting string Values 
-------------------------
+## Converting string Values 
 
-Converting a string can be done with two methods. First, there's iconv.ConvertString(input, fromEncoding, toEncoding string)
+Converting a string can be done with two methods. First, there's
+iconv.ConvertString(input, fromEncoding, toEncoding string)
 
 	output,_ := iconv.ConvertString("Hello World!", "utf-8", "windows-1252")
 
-Alternatively, you can create a converter and use its ConvertString method. This mostly just saves having to parse the from and to encodings when converting many strings in the same way.
+Alternatively, you can create a converter and use its ConvertString method.
+Reuse of a Converter instance is recommended when doing many string conversions
+between the same encodings.
 
 	converter := iconv.NewConverter("utf-8", "windows-1252")
 	output,_ := converter.ConvertString("Hello World!")
-
-Converting []byte Values
-------------------------
-
-Converting a []byte can similarly be done with two methods. First, there's iconv.Convert(input, output []byte, fromEncoding, toEncoding string). You'll immediately notice this requires you to give it both the input and output buffer. Ideally, the output buffer should be sized so that it can hold all converted bytes from input, but if it cannot, then Convert will put as many bytes as it can into the buffer without creating an invalid sequence. For example, if iconv only has a single byte left in the output buffer but needs 2 or more for the complete character in a multibyte encoding it will stop writing to the buffer and return with an iconv.E2BIG error.
-
-	input := []byte("Hello World!")
-	output := make([]byte, len(input))
 	
-	bytesRead, bytesWritten, error := iconv.Convert(input, output, "utf-8", "windows-1252")
+	// converter can then be closed explicitly
+	// this will also happen when garbage collected
+	converter.Close()
 
-Just like with ConvertString, there is also a Convert method on Converter that can be used.
+ConvertString may return errors for the following reasons:
+
+ * EINVAL - when either the from or to encoding is not supported by iconv
+ * EILSEQ - when the input string contains an invalid byte sequence for the
+   given from encoding
+
+## Converting []byte Values
+
+Converting a []byte can similarly be done with two methods. First, there's
+iconv.Convert(input, output []byte, fromEncoding, toEncoding string). You'll
+immediately notice this requires you to give it both the input and output
+buffer. Ideally, the output buffer should be sized so that it can hold all
+converted bytes from input, but if it cannot, then Convert will put as many
+bytes as it can into the buffer without creating an invalid sequence. For
+example, if iconv only has a single byte left in the output buffer but needs 2
+or more for the complete character in a multibyte encoding it will stop writing
+to the buffer and return with an iconv.E2BIG error.
+
+	in := []byte("Hello World!")
+	out := make([]byte, len(input))
+	
+	bytesRead, bytesWritten, err := iconv.Convert(in, out, "utf-8", "latin1")
+
+Just like with ConvertString, there is also a Convert method on Converter that
+can be used.
 
 	...
 	converter := iconv.NewConverter("utf-8", "windows-1252")
 	
 	bytesRead, bytesWritten, error := converter.Convert(input, output)
+	
+Convert may return errors for the following reasons:
 
-Converting an *io.Reader
-------------------------
+ * EINVAL - when either the from or to encoding is not supported by iconv
+ * EILSEQ - when the input string contains an invalid byte sequence for the
+   given from encoding
+ * E2BIG - when the output buffer is not big enough to hold the full
+   conversion of input
+   
+   Note on E2BIG: this is a common error value especially when converting to a
+   multibyte encoding and should not be considered fatal. Partial conversion
+   has probably occurred be sure to check bytesRead and bytesWritten.
 
-The iconv.Reader allows any other *io.Reader to be wrapped and have its bytes transcoded as they are read. 
+### Note on Shift Based Encodings
 
-	// We're wrapping stdin for simplicity, but a File or network reader could be wrapped as well
+When using iconv.Convert convenience method it will automatically try to append
+to your output buffer with a nil input so that any end shift sequences are
+appropiately written. Using a Converter.Convert method however will not
+automatically do this since it can be used to process a full stream in chunks.
+So you'll need to remember to pass a nil input buffer at the end yourself, just
+like you would with direct iconv usage.
+
+## Converting an *io.Reader
+
+The iconv.Reader allows any other *io.Reader to be wrapped and have its bytes
+transcoded as they are read. 
+
+	// We're wrapping stdin for simplicity, but a File or network reader could
+	// be wrapped as well
 	reader,_ := iconv.NewReader(os.Stdin, "utf-8", "windows-1252")
 
-Converting an *io.Writer
-------------------------
+## Converting an *io.Writer
 
-To be written.
+The iconv.Writer allows any other *io.Writer to be wrapped and have its bytes
+transcoded as they are written. 
 
-Piping a Conversion
--------------------
-
-To be written.
+	// We're wrapping stdout for simplicity, but a File or network reader could
+	// be wrapped as well
+	writer,_ := iconv.NewWriter(os.Stdout, "utf-8", "windows-1252")
