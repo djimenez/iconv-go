@@ -2,14 +2,14 @@
 
 The main method of installation is through "go install" (provided in $GOROOT/bin)
 
-	go install github.com/djimenez/iconv.go
+	go install github.com/djimenez/iconv-go
 
 # Usage
 
 To use the package, you'll need the appropriate import statement:
 
 	import (
-		iconv "github.com/djimenez/iconv.go"
+		iconv "github.com/djimenez/iconv-go"
 	)
 
 ## Converting string Values 
