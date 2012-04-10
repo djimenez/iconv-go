@@ -1,28 +1,14 @@
 # Install
 
-The main method of installation is through gomake (provided in $GOROOT/bin)
+The main method of installation is through "go install" (provided in $GOROOT/bin)
 
-	git clone git://github.com/djimenez/iconv.go.git iconv
-	cd iconv
-	gomake install
-
-Alternatively, you can try using goinstall (also provided in $GOROOT/bin).
-However, because iconv.go uses cgo to wrap iconv functions, the build may not
-succeed on all systems. At time of writing goinstall was still experimental and
-has known issues with cgo based packages because of how it produces its own
-make file.
-
-	goinstall github.com/djimenez/iconv.go
+	go install github.com/djimenez/iconv.go
 
 # Usage
 
 To use the package, you'll need the appropriate import statement:
 
 	import (
-		// if you used gomake install directly, you'll want this import
-		iconv
-		
-		// if you used goinstall, you'll want this import
 		iconv "github.com/djimenez/iconv.go"
 	)
 
@@ -96,18 +82,18 @@ automatically do this since it can be used to process a full stream in chunks.
 So you'll need to remember to pass a nil input buffer at the end yourself, just
 like you would with direct iconv usage.
 
-## Converting an *io.Reader
+## Converting an \*io.Reader
 
-The iconv.Reader allows any other *io.Reader to be wrapped and have its bytes
+The iconv.Reader allows any other \*io.Reader to be wrapped and have its bytes
 transcoded as they are read. 
 
 	// We're wrapping stdin for simplicity, but a File or network reader could
 	// be wrapped as well
 	reader,_ := iconv.NewReader(os.Stdin, "utf-8", "windows-1252")
 
-## Converting an *io.Writer
+## Converting an \*io.Writer
 
-The iconv.Writer allows any other *io.Writer to be wrapped and have its bytes
+The iconv.Writer allows any other \*io.Writer to be wrapped and have its bytes
 transcoded as they are written. 
 
 	// We're wrapping stdout for simplicity, but a File or network reader could

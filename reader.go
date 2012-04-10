@@ -1,19 +1,19 @@
 package iconv
 
-import ( 
+import (
 	"io"
-	"os"
+	"syscall"
 )
 
 type Reader struct {
-	source io.Reader
-	converter *Converter
-	buffer []byte
+	source            io.Reader
+	converter         *Converter
+	buffer            []byte
 	readPos, writePos int
-	err os.Error
+	err               error
 }
 
-func NewReader(source io.Reader, fromEncoding string, toEncoding string) (*Reader, os.Error) {
+func NewReader(source io.Reader, fromEncoding string, toEncoding string) (*Reader, error) {
 	// create a converter
 	converter, err := NewConverter(fromEncoding, toEncoding)
 
@@ -33,7 +33,7 @@ func NewReaderFromConverter(source io.Reader, converter *Converter) (reader *Rea
 	reader.converter = converter
 
 	// create 8K buffers
-	reader.buffer = make([]byte, 8 * 1024)
+	reader.buffer = make([]byte, 8*1024)
 
 	return reader
 }
@@ -62,7 +62,7 @@ func (this *Reader) fillBuffer() {
 }
 
 // implement the io.Reader interface
-func (this *Reader) Read(p []byte) (n int, err os.Error) {
+func (this *Reader) Read(p []byte) (n int, err error) {
 	// checks for when we have no data
 	for this.writePos == 0 || this.readPos == this.writePos {
 		// if we have an error / EOF, just return it
@@ -72,7 +72,7 @@ func (this *Reader) Read(p []byte) (n int, err os.Error) {
 
 		// else, fill our buffer
 		this.fillBuffer()
-	}	
+	}
 
 	// TODO: checks for when we have less data than len(p)
 
@@ -89,7 +89,7 @@ func (this *Reader) Read(p []byte) (n int, err os.Error) {
 		// as at least 1 byte was written. If we experienced an E2BIG
 		// and no bytes were written then the buffer is too small for
 		// even the next character
-		if err != E2BIG || bytesWritten == 0 {
+		if err != syscall.E2BIG || bytesWritten == 0 {
 			// track anything else
 			this.err = err
 		}

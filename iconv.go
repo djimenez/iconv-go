@@ -5,26 +5,8 @@ some convenient interface implementations like a Reader and Writer.
 */
 package iconv
 
-/*
-#include <errno.h>
-*/
-import "C"
-import "os"
-
-// Alias os.Error for convenience
-type Error os.Error
-
-// Error codes returned from iconv functions
-var (
-	E2BIG Error = os.Errno(int(C.E2BIG))
-	EBADF Error = os.Errno(int(C.EBADF))
-	EINVAL Error = os.Errno(int(C.EINVAL))
-	EILSEQ Error = os.Errno(int(C.EILSEQ))
-	ENOMEM Error = os.Errno(int(C.ENOMEM))
-)
-
 // All in one Convert method, rather than requiring the construction of an iconv.Converter
-func Convert(input []byte, output []byte, fromEncoding string, toEncoding string) (bytesRead int, bytesWritten int, err Error) {
+func Convert(input []byte, output []byte, fromEncoding string, toEncoding string) (bytesRead int, bytesWritten int, err error) {
 	// create a temporary converter
 	converter, err := NewConverter(fromEncoding, toEncoding)
 
@@ -34,10 +16,10 @@ func Convert(input []byte, output []byte, fromEncoding string, toEncoding string
 
 		if err == nil {
 			var shiftBytesWritten int
-			
+
 			// call Convert with a nil input to generate any end shift sequences
 			_, shiftBytesWritten, err = converter.Convert(nil, output[bytesWritten:])
-			
+
 			// add shift bytes to total bytes
 			bytesWritten += shiftBytesWritten
 		}
@@ -50,7 +32,7 @@ func Convert(input []byte, output []byte, fromEncoding string, toEncoding string
 }
 
 // All in one ConvertString method, rather than requiring the construction of an iconv.Converter
-func ConvertString(input string, fromEncoding string, toEncoding string) (output string, err Error) {
+func ConvertString(input string, fromEncoding string, toEncoding string) (output string, err error) {
 	// create a temporary converter
 	converter, err := NewConverter(fromEncoding, toEncoding)
 

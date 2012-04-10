@@ -1,19 +1,16 @@
 package iconv
 
-import ( 
-	"io"
-	"os"
-)
+import "io"
 
 type Writer struct {
-	destination io.Writer
-	converter *Converter
-	buffer []byte
+	destination       io.Writer
+	converter         *Converter
+	buffer            []byte
 	readPos, writePos int
-	err os.Error
+	err               error
 }
 
-func NewWriter(destination io.Writer, fromEncoding string, toEncoding string) (*Writer, os.Error) {
+func NewWriter(destination io.Writer, fromEncoding string, toEncoding string) (*Writer, error) {
 	// create a converter
 	converter, err := NewConverter(fromEncoding, toEncoding)
 
@@ -33,7 +30,7 @@ func NewWriterFromConverter(destination io.Writer, converter *Converter) (writer
 	writer.converter = converter
 
 	// create 8K buffers
-	writer.buffer = make([]byte, 8 * 1024)
+	writer.buffer = make([]byte, 8*1024)
 
 	return writer
 }
@@ -41,10 +38,10 @@ func NewWriterFromConverter(destination io.Writer, converter *Converter) (writer
 func (this *Writer) emptyBuffer() {
 	// write new data out of buffer 
 	bytesWritten, err := this.destination.Write(this.buffer[this.readPos:this.writePos])
-	
+
 	// update read position
 	this.readPos += bytesWritten
-	
+
 	// slide existing data to beginning
 	if this.readPos > 0 {
 		// copy current bytes - is this guaranteed safe?
@@ -62,24 +59,24 @@ func (this *Writer) emptyBuffer() {
 }
 
 // implement the io.Writer interface
-func (this *Writer) Write(p []byte) (n int, err os.Error) {
+func (this *Writer) Write(p []byte) (n int, err error) {
 	// write data into our internal buffer
 	bytesRead, bytesWritten, err := this.converter.Convert(p, this.buffer[this.writePos:])
-	
+
 	// update bytes written for return
 	n += bytesRead
 	this.writePos += bytesWritten
-	
+
 	// checks for when we have a full buffer
 	for this.writePos > 0 {
 		// if we have an error, just return it
 		if this.err != nil {
-			return 
+			return
 		}
-		
+
 		// else empty the buffer
 		this.emptyBuffer()
 	}
-	
+
 	return n, err
 }
