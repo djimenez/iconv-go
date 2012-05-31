@@ -1,8 +1,16 @@
 # Install
 
-The main method of installation is through "go install" (provided in $GOROOT/bin)
+The main method of installation is through "go get" (provided in $GOROOT/bin)
+
+	go get github.com/djimenez/iconv-go
+	
+This both downloads from github and installs the package into your $GOPATH. To just
+recompile the package after you've already "get"ed (e.g. for a new go version), 
+use "go install" instead.
 
 	go install github.com/djimenez/iconv-go
+
+See documentation for "go get" and "go install" for more information.
 
 # Usage
 
