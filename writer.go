@@ -36,7 +36,7 @@ func NewWriterFromConverter(destination io.Writer, converter *Converter) (writer
 }
 
 func (this *Writer) emptyBuffer() {
-	// write new data out of buffer 
+	// write new data out of buffer
 	bytesWritten, err := this.destination.Write(this.buffer[this.readPos:this.writePos])
 
 	// update read position

@@ -1,10 +1,10 @@
 package main
 
-import ( 
+import (
 	"encoding/hex"
-	"io/ioutil"
-	"iconv"
 	"fmt"
+	"iconv"
+	"io/ioutil"
 	"os"
 )
 
@@ -12,7 +12,7 @@ func main() {
 	// read bytes from sample.utf8
 	utf8Bytes, err := ioutil.ReadFile("sample.utf8")
 
-	if (err != nil) {
+	if err != nil {
 		fmt.Println("Could not open 'sample.utf8': ", err)
 	}
 
@@ -57,7 +57,7 @@ func main() {
 		fmt.Println("ebcdic-us was properly converted to utf-8 by iconv.ConvertString")
 	}
 
-	testBuffer := make([]byte, len(ebcdicBytes) * 2)
+	testBuffer := make([]byte, len(ebcdicBytes)*2)
 
 	// convert from ebdic bytes to utf-8 bytes
 	bytesRead, bytesWritten, err := iconv.Convert(ebcdicBytes, testBuffer, "ebcdic-us", "utf-8")
@@ -78,8 +78,8 @@ func main() {
 	}
 
 	// test iconv.Reader
-	utf8File,_ := os.Open("sample.utf8", os.O_RDONLY, 0)
-	utf8Reader,_ := iconv.NewReader(utf8File, "utf-8", "ebcdic-us")
+	utf8File, _ := os.Open("sample.utf8")
+	utf8Reader, _ := iconv.NewReader(utf8File, "utf-8", "ebcdic-us")
 	bytesRead, err = utf8Reader.Read(testBuffer)
 
 	if err != nil || bytesRead != len(ebcdicBytes) {
@@ -88,8 +88,8 @@ func main() {
 		fmt.Println("utf8 was property converted to ebcdic-us by iconv.Reader")
 	}
 
-	ebcdicFile,_ := os.Open("sample.ebcdic-us", os.O_RDONLY, 0)
-	ebcdicReader,_ := iconv.NewReader(ebcdicFile, "ebcdic-us", "utf-8")	
+	ebcdicFile, _ := os.Open("sample.ebcdic-us")
+	ebcdicReader, _ := iconv.NewReader(ebcdicFile, "ebcdic-us", "utf-8")
 	bytesRead, err = ebcdicReader.Read(testBuffer)
 
 	if err != nil || bytesRead != len(utf8Bytes) {
