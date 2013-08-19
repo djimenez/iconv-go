@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/hex"
 	"fmt"
-	"iconv"
+	iconv "github.com/djimenez/iconv-go"
 	"io/ioutil"
 	"os"
 )
