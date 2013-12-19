@@ -12,6 +12,8 @@ use "go install" instead.
 
 See documentation for "go get" and "go install" for more information.
 
+__PLEASE NOTE__ that this package requires the use of cgo, since it is only a wrapper around iconv - either provided by libiconv or glibc on your system. Attempts to build without cgo enabled will fail.
+
 # Usage
 
 To use the package, you'll need the appropriate import statement:
