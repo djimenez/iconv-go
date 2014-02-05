@@ -6,10 +6,20 @@ package iconv
 #cgo windows LDFLAGS: -liconv
 #include <stdlib.h>
 #include <iconv.h>
+#include <locale.h>
+
+// called by init, seems to be necessary for TRANSLIT to work
+void initLocale() {
+	setlocale(LC_ALL, "");
+}
 */
 import "C"
 import "syscall"
 import "unsafe"
+
+func init() {
+	C.initLocale()
+}
 
 type Converter struct {
 	context C.iconv_t
