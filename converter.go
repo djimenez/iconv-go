@@ -6,6 +6,13 @@ package iconv
 #cgo windows LDFLAGS: -liconv
 #include <stdlib.h>
 #include <iconv.h>
+
+// As of GO 1.6 passing a pointer to Go pointer, will lead to panic
+// Therofore we use this wrapper function, to avoid passing **char directly from go
+size_t call_iconv(iconv_t ctx, char *in, size_t *size_in, char *out, size_t *size_out){
+	return iconv(ctx, &in, size_in, &out, size_out);
+}
+
 */
 import "C"
 import "syscall"
@@ -80,7 +87,7 @@ func (this *Converter) Convert(input []byte, output []byte) (bytesRead int, byte
 			inputPointer := (*C.char)(unsafe.Pointer(&input[0]))
 			outputPointer := (*C.char)(unsafe.Pointer(&output[0]))
 
-			_, err = C.iconv(this.context, &inputPointer, &inputLeft, &outputPointer, &outputLeft)
+			_, err = C.call_iconv(this.context, inputPointer, &inputLeft, outputPointer, &outputLeft)
 
 			// update byte counters
 			bytesRead = len(input) - int(inputLeft)
@@ -89,13 +96,13 @@ func (this *Converter) Convert(input []byte, output []byte) (bytesRead int, byte
 			// inputPointer will be nil, outputPointer is generated as above
 			outputPointer := (*C.char)(unsafe.Pointer(&output[0]))
 
-			_, err = C.iconv(this.context, nil, &inputLeft, &outputPointer, &outputLeft)
+			_, err = C.call_iconv(this.context, nil, &inputLeft, outputPointer, &outputLeft)
 
 			// update write byte counter
 			bytesWritten = len(output) - int(outputLeft)
 		} else {
 			// both input and output are zero length, do a shift state reset
-			_, err = C.iconv(this.context, nil, &inputLeft, nil, &outputLeft)
+			_, err = C.call_iconv(this.context, nil, &inputLeft, nil, &outputLeft)
 		}
 	} else {
 		err = syscall.EBADF
