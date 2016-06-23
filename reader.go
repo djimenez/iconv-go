@@ -5,6 +5,7 @@ import (
 	"syscall"
 )
 
+// This implements io.ReadCloser interface
 type Reader struct {
 	source            io.Reader
 	converter         *Converter
@@ -59,6 +60,11 @@ func (this *Reader) fillBuffer() {
 	if err != nil {
 		this.err = err
 	}
+}
+
+// Must be called to free memory
+func (this *Reader) Close() error {
+	return this.converter.Close()
 }
 
 // implement the io.Reader interface

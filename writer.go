@@ -2,6 +2,7 @@ package iconv
 
 import "io"
 
+// This implements io.WriteCloser interface
 type Writer struct {
 	destination       io.Writer
 	converter         *Converter
@@ -56,6 +57,11 @@ func (this *Writer) emptyBuffer() {
 	if err != nil {
 		this.err = err
 	}
+}
+
+// Must be called to free memory
+func (this *Writer) Close() error {
+	return this.converter.Close()
 }
 
 // implement the io.Writer interface
