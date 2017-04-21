@@ -18,7 +18,9 @@ func NewReader(source io.Reader, fromEncoding string, toEncoding string) (*Reade
 	converter, err := NewConverter(fromEncoding, toEncoding)
 
 	if err == nil {
-		return NewReaderFromConverter(source, converter), err
+		reader := iconv.NewReaderFromConverter(source, converter)
+		converter.Close()
+		return reader, err
 	}
 
 	// return the error
