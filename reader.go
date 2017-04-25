@@ -2,7 +2,12 @@ package iconv
 
 import (
 	"io"
-	"syscall"
+	"runtime"
+)
+
+const (
+	defaultReadBufferSize = 8 * 1024
+	minReadBufferSize     = 16
 )
 
 type Reader struct {
@@ -10,91 +15,100 @@ type Reader struct {
 	converter         *Converter
 	buffer            []byte
 	readPos, writePos int
-	err               error
+	eof               bool
 }
 
-func NewReader(source io.Reader, fromEncoding string, toEncoding string) (*Reader, error) {
-	// create a converter
+func NewReader(source io.Reader, fromEncoding, toEncoding string) (*Reader, error) {
+	return NewReaderSized(source, fromEncoding, toEncoding, defaultReadBufferSize)
+}
+
+func NewReaderFromConverter(source io.Reader, converter *Converter) *Reader {
+	return NewReaderFromConverterSized(source, converter, defaultReadBufferSize)
+}
+
+func NewReaderSized(source io.Reader, fromEncoding, toEncoding string, size int) (*Reader, error) {
 	converter, err := NewConverter(fromEncoding, toEncoding)
 
-	if err == nil {
-		return NewReaderFromConverter(source, converter), err
-	}
-
-	// return the error
-	return nil, err
-}
-
-func NewReaderFromConverter(source io.Reader, converter *Converter) (reader *Reader) {
-	reader = new(Reader)
-
-	// copy elements
-	reader.source = source
-	reader.converter = converter
-
-	// create 8K buffers
-	reader.buffer = make([]byte, 8*1024)
-
-	return reader
-}
-
-func (this *Reader) fillBuffer() {
-	// slide existing data to beginning
-	if this.readPos > 0 {
-		// copy current bytes - is this guaranteed safe?
-		copy(this.buffer, this.buffer[this.readPos:this.writePos])
-
-		// adjust positions
-		this.writePos -= this.readPos
-		this.readPos = 0
-	}
-
-	// read new data into buffer at write position
-	bytesRead, err := this.source.Read(this.buffer[this.writePos:])
-
-	// adjust write position
-	this.writePos += bytesRead
-
-	// track any reader error / EOF
 	if err != nil {
-		this.err = err
+		return nil, err
+	}
+
+	// add a finalizer for the converter we created
+	runtime.SetFinalizer(converter, finalizeConverter)
+
+	return NewReaderFromConverterSized(source, converter, size), nil
+}
+
+func NewReaderFromConverterSized(source io.Reader, converter *Converter, size int) *Reader {
+	if size < minReadBufferSize {
+		size = minReadBufferSize
+	}
+
+	return &Reader{
+		source:    source,
+		converter: converter,
+		buffer:    make([]byte, size),
 	}
 }
 
-// implement the io.Reader interface
-func (this *Reader) Read(p []byte) (n int, err error) {
-	// checks for when we have no data
-	for this.writePos == 0 || this.readPos == this.writePos {
-		// if we have an error / EOF, just return it
-		if this.err != nil {
-			return n, this.err
+func (r *Reader) Read(p []byte) (int, error) {
+	if len(p) == 0 {
+		return 0, nil
+	}
+
+	var bytesRead, bytesWritten int
+	var err error
+
+	// setup for a single read into buffer if possible
+	if !r.eof {
+		if r.readPos > 0 {
+			// slide data to front of buffer
+			r.readPos, r.writePos = 0, copy(r.buffer, r.buffer[r.readPos:r.writePos])
 		}
 
-		// else, fill our buffer
-		this.fillBuffer()
-	}
+		if r.writePos < len(r.buffer) {
+			// do the single read
+			bytesRead, err = r.source.Read(r.buffer[r.writePos:])
 
-	// TODO: checks for when we have less data than len(p)
+			if bytesRead < 0 {
+				panic("iconv: source reader returned negative count from Read")
+			}
 
-	// we should have an appropriate amount of data, convert it into the given buffer
-	bytesRead, bytesWritten, err := this.converter.Convert(this.buffer[this.readPos:this.writePos], p)
-
-	// adjust byte counters
-	this.readPos += bytesRead
-	n += bytesWritten
-
-	// if we experienced an iconv error, check it
-	if err != nil {
-		// E2BIG errors can be ignored (we'll get them often) as long
-		// as at least 1 byte was written. If we experienced an E2BIG
-		// and no bytes were written then the buffer is too small for
-		// even the next character
-		if err != syscall.E2BIG || bytesWritten == 0 {
-			// track anything else
-			this.err = err
+			r.writePos += bytesRead
+			r.eof = err == io.EOF
 		}
 	}
 
-	// return our results
-	return n, this.err
+	if r.readPos < r.writePos || r.eof {
+		// convert any buffered data we have, or do a final reset (for shift based conversions)
+		bytesRead, bytesWritten, err = r.converter.Convert(r.buffer[r.readPos:r.writePos], p)
+		r.readPos += bytesRead
+
+		// if we experienced an iconv error and didn't make progress, report it.
+		// if we did make progress, it may be informational only (i.e. reporting
+		// an EILSEQ even when using //ignore to skip them)
+		if err != nil && bytesWritten == 0 {
+			return bytesWritten, err
+		}
+
+		// signal an EOF only if we didn't write anything - accomodates premature
+		// errror checking in user code
+		if bytesWritten == 0 && r.eof {
+			return 0, io.EOF
+		}
+
+		return bytesWritten, nil
+	}
+
+	return 0, err
+}
+
+func (r *Reader) Reset(source io.Reader) {
+	r.converter.Reset()
+
+	*r = Reader{
+		source:    source,
+		converter: r.converter,
+		buffer:    r.buffer,
+	}
 }
